@@ -1,7 +1,7 @@
 #include <stdint.h> 
 #include "../v_sys.h"
 enum isa : uint8_t {
-  mov, cipr, add_s, add_u,
+  set, cipr, add_s, add_u,
   min_s, min_u, mlt_s, mlt_u,
   division_s, division_u,
   and, or, xor, not, end
@@ -25,6 +25,7 @@ enum v_cpu_idt : uint8_t {
   invalid_cipr_code, 
 };
 static uint8_t code_8b; 
+vm_t* c_vm;
 void load_reg_for_err(enum v_cpu_idt x){
   c_vm->f_regu[0] = 1; 
   c_vm->f_regu[1] = x; 
@@ -51,12 +52,12 @@ uint32_t get_4byte_uint(){
   temp_4byte_uint |= (uint32_t)c_vm->container[c_vm->ipr] << 24; 
   return temp_4byte_uint; 
 }
-uint32_t get_1byte_uint_at_address(int address){
+uint8_t get_1byte_uint_at_address(int address){
   if (address > c_vm->v_ram_capacity - 1){
     load_reg_for_err(invalid_memory_address); 
     return 0; 
   }
-  return (uint32_t)(c_vm->container[address]); 
+  return (uint8_t)(c_vm->container[address]); 
 }
 uint32_t get_4byte_uint_at_address(int address){
   if (address > c_vm->v_ram_capacity - 1 || address + 4 > c_vm->v_ram_capacity - 1){
@@ -169,14 +170,62 @@ void v_alu(const uint32_t arg1, const uint32_t arg2, const uint8_t opr){
     }
   }
 }
-
-void load_reg_for_v_alu(){
+void set_inst(){
+  // format: set <source> <destination>
+  uint8_t dest_code; 
+  uint32_t dest_address, data; 
+  uint8_t memory_address = 0; 
   code_8b = get_1byte_uint(); 
+  if (!code_8b){
+    memory_address = 1; 
+    increment_ipr(); 
+    if (c_vm->f_regu[0]) return; 
+    uint32_t v_memory_address = (uint32_t)get_4byte_uint();  
+    data = get_4byte_uint_at_address(v_memory_address); 
+    if (c_vm->f_regu[0]) return;
+  } else if (code_8b == 1){
+    increment_ipr(); 
+    code_8b = get_1byte_uint(); 
+    if (!(code_8b > 0 && code_8b < sizeof(c_vm->p_regs)/sizeof(c_vm->p_regs[0]))){
+      load_reg_for_err(invalid_register);
+      return; 
+    }
+    if (c_vm->f_regu[0]) return; 
+    data = (uint32_t)(c_vm->p_regs[code_8b - 1]); 
+  } else if (code_8b == 2){
+    data = get_4byte_uint();
+    if (c_vm->f_regu[0]) return; 
+  }else if(code_8b == 3){
+    if (memory_address){
+      load_reg_for_err(invalid_set_arguments); 
+      return;; 
+    }
+    increment_ipr(); 
+    if (c_vm->f_regu[0]) return; 
+    uint32_t addr = get_4byte_uint(); 
+    if (addr > c_vm->v_ram_capacity - 1){
+      load_reg_for_err(invalid_memory_address); 
+      return; 
+    }
+    data = get_4byte_uint_at_address(addr); 
+  } else {
+    load_reg_for_err(invalid_dest_code); 
+    return; 
+  }
+  increment_ipr(); 
+  if (c_vm->f_regu[0]) return; 
+  code_8b = get_1byte_uint(); 
+  // now pointing at src code
+
+}
+    
+void load_reg_for_v_alu(){
   uint8_t memory_address = 0; 
   uint32_t arg1_32b, arg2_32b; 
   // dest code 0 is address
   // dest code 1 is registers
   // dest code 2 is constant value
+  // dest code 3 is for data inside an address inside an address 
   // mov <memory address> <memory address> is an illegal command
   code_8b = get_1byte_uint(); 
   if (!code_8b){
@@ -198,13 +247,24 @@ void load_reg_for_v_alu(){
   } else if (code_8b == 2){
     arg1_32b = get_4byte_uint();
     if (c_vm->f_regu[0]) return; 
-  }else {
+  } else if(code_8b == 3){
+    memory_address = 1; 
+    increment_ipr(); 
+    if (c_vm->f_regu[0]) return; 
+    uint32_t addr = get_4byte_uint(); 
+    if (addr > c_vm->v_ram_capacity - 1){
+      load_reg_for_err(invalid_memory_address); 
+      return; 
+    }
+    arg1_32b = get_4byte_uint_at_address(addr); 
+  } else {
     load_reg_for_err(invalid_dest_code); 
     return; 
   }
   increment_ipr(); 
   if (c_vm->f_regu[0]) return; 
   code_8b = get_1byte_uint(); 
+  // now pointing at arg2
   if (!code_8b){
     memory_address = 1; 
     increment_ipr(); 
@@ -224,7 +284,20 @@ void load_reg_for_v_alu(){
   } else if (code_8b == 2){
     arg2_32b = get_4byte_uint();
     if (c_vm->f_regu[0]) return; 
-  }else {
+  }else if(code_8b == 3){
+    if (memory_address){
+      load_reg_for_err(invalid_set_arguments); 
+      return;; 
+    }
+    increment_ipr(); 
+    if (c_vm->f_regu[0]) return; 
+    uint32_t addr = get_4byte_uint(); 
+    if (addr > c_vm->v_ram_capacity - 1){
+      load_reg_for_err(invalid_memory_address); 
+      return; 
+    }
+    arg2_32b = get_4byte_uint_at_address(addr); 
+  } else {
     load_reg_for_err(invalid_dest_code); 
     return; 
   }
@@ -365,4 +438,7 @@ void cipr_inst(){
     return; 
   }
 }
-
+void sys_loop(){
+  void (*isa_methods[13])(void) = {
+  }; 
+}
