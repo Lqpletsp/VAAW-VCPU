@@ -1,4 +1,5 @@
 #include <stdint.h> 
+#include <sys/types.h>
 #include "../v_sys.h"
 enum isa : uint8_t {
   set, cipr, add_s, add_u,
@@ -175,10 +176,16 @@ void v_alu(const uint32_t arg1, const uint32_t arg2, const uint8_t opr){
 void set_inst(){
   // format: set <source> <destination>
   uint8_t dest_code; 
+  uint8_t data_8b_slb, data_8b_lsb, data_8b_ssb, data_8b_msb; 
+  // lsb -> least significant byte 
+  // slb -> second last byte
+  // ssb -> second significant byte
+  // msb -> most significant byte
   uint32_t dest_address, data; 
   uint8_t memory_address = 0; 
   code_8b = get_1byte_uint(); 
   if (!code_8b){
+    // direct
     memory_address = 1; 
     increment_ipr(); 
     if (c_vm->f_regu[0]) return; 
@@ -186,6 +193,7 @@ void set_inst(){
     data = get_4byte_uint_at_address(v_memory_address); 
     if (c_vm->f_regu[0]) return;
   } else if (code_8b == 1){
+    // p_regs data
     increment_ipr(); 
     code_8b = get_1byte_uint(); 
     if (!(code_8b > 0 && code_8b < sizeof(c_vm->p_regs)/sizeof(c_vm->p_regs[0]))){
@@ -195,13 +203,11 @@ void set_inst(){
     if (c_vm->f_regu[0]) return; 
     data = (uint32_t)(c_vm->p_regs[code_8b - 1]); 
   } else if (code_8b == 2){
+    // constant
     data = get_4byte_uint();
     if (c_vm->f_regu[0]) return; 
   }else if(code_8b == 3){
-    if (memory_address){
-      load_reg_for_err(invalid_set_arguments); 
-      return;; 
-    }
+    memory_address = 1; 
     increment_ipr(); 
     if (c_vm->f_regu[0]) return; 
     uint32_t addr = get_4byte_uint(); 
@@ -214,13 +220,66 @@ void set_inst(){
     load_reg_for_err(invalid_dest_code); 
     return; 
   }
+  data_8b_lsb = data & 255; 
+  data_8b_slb = (data >> 8) & 255; 
+  data_8b_ssb = (data >> 16) & 255; 
+  data_8b_msb = (data >> 24) & 255; 
   increment_ipr(); 
   if (c_vm->f_regu[0]) return; 
+  // now pointing at dest code
   code_8b = get_1byte_uint(); 
-  // now pointing at src code
-
-}
-    
+  if (!code_8b){
+    // direct addressing
+    if (memory_address){
+      load_reg_for_err(invalid_set_arguments); 
+      return; 
+    }
+    uint32_t addr; 
+    increment_ipr(); 
+    if (c_vm->f_regu[0]) return; 
+    uint32_t v_memory_address = (uint32_t)get_4byte_uint();  
+    addr = get_4byte_uint_at_address(v_memory_address); 
+    if (c_vm->f_regu[0]) return;
+    if (addr > c_vm->v_ram_capacity - 1 || addr + 4 > c_vm->v_ram_capacity - 1){
+      load_reg_for_err(invalid_memory_address); 
+      return; 
+    }
+    c_vm->container[addr] = data_8b_lsb;
+    c_vm->container[++addr] = data_8b_slb; 
+    c_vm->container[++addr] = data_8b_ssb; 
+    c_vm->container[++addr] = data_8b_msb;  
+  } else if (code_8b == 1){
+    // store in p_regs
+    increment_ipr(); 
+    code_8b = get_1byte_uint(); 
+    if (!(code_8b > 0 && code_8b < sizeof(c_vm->p_regs)/sizeof(c_vm->p_regs[0]))){
+      load_reg_for_err(invalid_register);
+      return; 
+    }
+    if (c_vm->f_regu[0]) return; 
+    c_vm->p_regs[code_8b - 1] = data; 
+  } else if (code_8b == 2){
+    // indirect addressing
+    uint32_t addr = get_4byte_uint();
+    if (addr > c_vm->v_ram_capacity - 1){
+      load_reg_for_err(invalid_memory_address); 
+      return; 
+    }
+    uint32_t addr2 = get_1byte_uint_at_address(addr); 
+    if (c_vm->f_regu[0]) return; 
+    if (addr2 > c_vm->v_ram_capacity - 1){
+      load_reg_for_err(invalid_memory_address); 
+      return; 
+    } 
+    c_vm->container[addr2] = data_8b_lsb;
+    c_vm->container[++addr2] = data_8b_slb; 
+    c_vm->container[++addr2] = data_8b_ssb; 
+    c_vm->container[++addr2] = data_8b_msb;
+  } else {
+    load_reg_for_err(invalid_dest_code); 
+    return; 
+  }
+} 
 void load_reg_for_v_alu(){
   uint8_t memory_address = 0; 
   uint32_t arg1_32b, arg2_32b; 
