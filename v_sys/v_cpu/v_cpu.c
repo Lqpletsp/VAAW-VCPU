@@ -7,6 +7,7 @@ enum isa : uint8_t {
   and, or, xor, not, end
 }; 
 enum v_cpu_idt : uint8_t {
+  no_error, 
   divide_by_zero,
   invalid_ipr, 
   ipr_corruption, 
@@ -23,6 +24,7 @@ enum v_cpu_idt : uint8_t {
   signed_division_overflow, 
   invalid_set_arguments, 
   invalid_cipr_code, 
+  invalid_instruction, 
 };
 static uint8_t code_8b; 
 vm_t* c_vm;
@@ -332,12 +334,12 @@ void mlt_s_inst(){
   if (c_vm->f_regu[0] != 1) return; 
   v_alu(c_vm->g_regu[0], c_vm->g_regu[1], 5); 
 }
-void div_u_inst(){
+void division_u_inst(){
   load_reg_for_v_alu(); 
   if (c_vm->f_regu[0] != 1) return; 
   v_alu(c_vm->g_regu[0], c_vm->g_regu[1], 6); 
 }
-void div_s_inst(){
+void division_s_inst(){
   load_reg_for_v_alu(); 
   if (c_vm->f_regu[0] != 1) return; 
   v_alu(c_vm->g_regu[0], c_vm->g_regu[1], 7); 
@@ -439,6 +441,32 @@ void cipr_inst(){
   }
 }
 void sys_loop(){
-  void (*isa_methods[13])(void) = {
+  void (*isa_methods[14])(void) = {
+    set_inst, cipr_inst, add_s_inst, add_u_inst, 
+    min_s_inst, min_u_inst, mlt_s_inst, mlt_u_inst, 
+    division_s_inst, division_u_inst, and_inst, or_inst, 
+    xor_inst, not_inst
   }; 
+  uint8_t stall = 0, end = 0; 
+  while (1){
+    uint8_t current_inst = get_1byte_uint(); 
+    uint32_t isa_size = sizeof(isa_methods)/sizeof(isa_methods[0]); 
+    if ((uint32_t)current_inst <= isa_size - 1 && !c_vm->f_regu[3]){
+      isa_methods[current_inst]();
+    }
+    if (c_vm->f_regu[0]) c_vm->f_regu[2] = 1; 
+    else if (current_inst != isa_size + 1) {
+      c_vm->f_regu[0] = 1; 
+      c_vm->f_regu[1] = (uint8_t)invalid_instruction;  
+      c_vm->f_regu[2] = 1; 
+    } else {
+      increment_ipr(); 
+      --c_vm->ipr; 
+      if (c_vm->f_regu[0]){
+        c_vm->f_regu[0] = 0; 
+        c_vm->f_regu[1] = 0; 
+        c_vm->f_regu[2] = 1; 
+      }
+    }
+  }
 }

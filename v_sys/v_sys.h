@@ -9,8 +9,9 @@ typedef struct {
     // g_regs -> general registers signed
     uint32_t ipr, g_regu[5]; 
     // ipr -> instruction pointer register 
-    uint8_t f_regu[2]; 
-    // f_regu -> flag registers unsigned
+    uint8_t f_regu[3]; 
+    // f_regu[0] indicates error signal, f_regu[1] indicates type of error,
+    // f_regu[2] indicates the mode (0 is operate, 1 is idle)
     int p_regs[12]; 
     // p_regs -> process registers signed
 } vm_t; 
