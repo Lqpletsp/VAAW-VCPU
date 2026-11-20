@@ -40,6 +40,8 @@ enum v_cpu_idt : uint8_t {
   invalid_cipr_code,
   invalid_instruction,
   segmentation_violation,
+  invalid_operator_argument,
+  illegal_argument_combination
 };
 
 static uint8_t code_8b;
@@ -214,6 +216,182 @@ void v_alu(const uint32_t arg1, const uint32_t arg2, const uint8_t opr) {
     break;
   }
   }
+}
+typedef struct {
+  uint32_t arg1, arg2;
+} int_data_pair;
+
+int_data_pair get_args_for_v_alu() {
+  // arg code 0 means address
+  // arg code 1 means registers
+  // arg code 2 means constant
+  uint8_t code_8b = get_8b_uint(), ram_operation = 0;
+  int_data_pair rtr_val;
+  switch (code_8b) {
+  case 0: {
+    ram_operation = 1;
+    uint32_t source_address = get_32b_uint();
+    if (c_vm->v_cpu.f_regu[0])
+      return (int_data_pair){};
+    if (!verify_memory_address(source_address, data)) {
+      load_reg_for_err(segmentation_violation);
+      return (int_data_pair){};
+    }
+    rtr_val.arg1 = get_32b_uint();
+    if (c_vm->v_cpu.f_regu[0])
+      return (int_data_pair){};
+    break;
+  }
+  case 1: {
+    uint8_t register_index = get_8b_uint();
+    if (register_index > P_REGS_QUANTITY - 1) {
+      load_reg_for_err(invalid_register);
+      return (int_data_pair){};
+    }
+    rtr_val.arg1 = c_vm->v_cpu.p_regs[register_index];
+    break;
+  }
+  case 2: {
+    rtr_val.arg1 = get_32b_uint();
+    if (c_vm->v_cpu.f_regu[0])
+      return (int_data_pair){};
+    break;
+  }
+  default:
+    load_reg_for_err(invalid_operator_argument);
+    break;
+  }
+  // now pointing at argument2 code
+  code_8b = get_8b_uint();
+  switch (code_8b) {
+  case 0: {
+    if (!ram_operation) {
+      load_reg_for_err(illegal_argument_combination);
+      return (int_data_pair){};
+    }
+    uint32_t source_address = get_32b_uint();
+    if (c_vm->v_cpu.f_regu[0])
+      return (int_data_pair){};
+    if (!verify_memory_address(source_address, data)) {
+      load_reg_for_err(segmentation_violation);
+      return (int_data_pair){};
+    }
+    rtr_val.arg2 = get_32b_uint();
+    if (c_vm->v_cpu.f_regu[0])
+      return (int_data_pair){};
+    break;
+  }
+  case 1: {
+    uint8_t register_index = get_8b_uint();
+    if (register_index > P_REGS_QUANTITY - 1) {
+      load_reg_for_err(invalid_register);
+      return (int_data_pair){};
+    }
+    rtr_val.arg2 = c_vm->v_cpu.p_regs[register_index];
+    break;
+  }
+  case 2: {
+    rtr_val.arg2 = get_32b_uint();
+    if (c_vm->v_cpu.f_regu[0])
+      return (int_data_pair){};
+    break;
+  }
+  default:
+    load_reg_for_err(invalid_operator_argument);
+    break;
+  }
+  decrement_ipr();
+  return rtr_val;
+}
+
+// 0->unsigned addition, 1->signed addition, 2->unsigned subtraction,
+// 3->signed subtraction, 4->signed multiplication, 5->unsigned multiplication
+// 6->signed division, 7->unsigned division, 8->bitwise AND, 9->bitwise OR,
+// 10->bitwise xor, 11->not
+void add_u_inst() {
+  int_data_pair args_u = get_args_for_v_alu();
+  v_alu(args_u.arg1, args_u.arg2, 0);
+}
+void add_s_inst() {
+  int_data_pair args_u = get_args_for_v_alu();
+  v_alu(args_u.arg1, args_u.arg2, 1);
+}
+void min_u_inst() {
+  int_data_pair args_u = get_args_for_v_alu();
+  v_alu(args_u.arg1, args_u.arg2, 2);
+}
+void min_s_inst() {
+  int_data_pair args_u = get_args_for_v_alu();
+  v_alu(args_u.arg1, args_u.arg2, 3);
+}
+void mlt_u_inst() {
+  int_data_pair args_u = get_args_for_v_alu();
+  v_alu(args_u.arg1, args_u.arg2, 4);
+}
+void mlt_s_inst() {
+  int_data_pair args_u = get_args_for_v_alu();
+  v_alu(args_u.arg1, args_u.arg2, 5);
+}
+void div_u_inst() {
+  int_data_pair args_u = get_args_for_v_alu();
+  v_alu(args_u.arg1, args_u.arg2, 6);
+}
+void div_s_inst() {
+  int_data_pair args_u = get_args_for_v_alu();
+  v_alu(args_u.arg1, args_u.arg2, 7);
+}
+void and_inst() {
+  int_data_pair args_u = get_args_for_v_alu();
+  v_alu(args_u.arg1, args_u.arg2, 8);
+}
+void or_inst() {
+  int_data_pair args_u = get_args_for_v_alu();
+  v_alu(args_u.arg1, args_u.arg2, 9);
+}
+void xor_inst() {
+  int_data_pair args_u = get_args_for_v_alu();
+  v_alu(args_u.arg1, args_u.arg2, 10);
+}
+void not_inst() {
+  // arg code 0 means address
+  // arg code 1 means registers
+  // arg code 2 means constant
+  uint8_t code_8b = get_8b_uint(), ram_operation = 0;
+  uint32_t arg;
+  switch (code_8b) {
+  case 0: {
+    uint32_t source_address = get_32b_uint();
+    if (c_vm->v_cpu.f_regu[0])
+      return;
+    if (!verify_memory_address(source_address, data)) {
+      load_reg_for_err(segmentation_violation);
+      return;
+    }
+    arg = get_32b_uint();
+    if (c_vm->v_cpu.f_regu[0])
+      return;
+    break;
+  }
+  case 1: {
+    uint8_t register_index = get_8b_uint();
+    if (register_index > P_REGS_QUANTITY - 1) {
+      load_reg_for_err(invalid_register);
+      return;
+    }
+    arg = c_vm->v_cpu.p_regs[register_index];
+    break;
+  }
+  case 2: {
+    arg = get_32b_uint();
+    if (c_vm->v_cpu.f_regu[0])
+      return;
+    break;
+  }
+  default:
+    load_reg_for_err(invalid_operator_argument);
+    break;
+  }
+  v_alu(arg, 0, 11);
 }
 uint32_t pop_and_get_data_in_stack() {
   uint32_t stack_ptr = c_vm->v_cpu.stack_pointer_register;
@@ -416,7 +594,7 @@ void set_32b_inst() {
   switch (code_8b) {
   case 0: {
     if (ram_operation) {
-      load_reg_for_err(invalid_set_arguments);
+      load_reg_for_err(illegal_argument_combination);
       return;
     }
     uint32_t destination_address = get_32b_uint();
