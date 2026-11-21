@@ -1,8 +1,8 @@
 #include "globals.h"
 #include "stdlib.h"
 #include "v_cpu/v_cpu.h"
+vm_t *c_vm;
 vm_t *get_v_sys_ptr() { return (vm_t *)malloc(sizeof(vm_t)); }
-
 static uint8_t boot_sys(vm_t *vm_ptr) {
   if (vm_ptr == NULL)
     return 0;
@@ -22,6 +22,7 @@ static uint8_t boot_sys(vm_t *vm_ptr) {
   c_vm->v_mmu.pid_stack.capacity = PROCESS_MAP_CAPACITY;
   c_vm->v_mmu.pid_stack.top = 0;
   c_vm->v_mmu.pid_stack.size = 0;
+  c_vm->v_disk.container = NULL;
   // intialize v_disk
   char *v_disk_name = "VAAW_v_disk";
   c_vm->v_disk.container = fopen(v_disk_name, "rb");
@@ -34,7 +35,9 @@ static uint8_t boot_sys(vm_t *vm_ptr) {
   return 1;
 }
 
-void run_vm(vm_t *vm_ptr) {
-  boot_sys(vm_ptr);
-  execute_instructions();
+uint8_t run_vm(vm_t *vm_ptr) {
+  if (!boot_sys(vm_ptr))
+    return 0;
+  sys_loop();
+  return 1;
 }

@@ -1,1 +1,2 @@
-void execute_instructions();
+#include <stdint.h>
+void sys_loop();

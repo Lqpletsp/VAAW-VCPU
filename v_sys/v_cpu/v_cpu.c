@@ -4,7 +4,6 @@
 #include <stdint.h>
 enum isa : uint8_t {
   set_32b,
-  set16_b,
   cipr,
   add_s,
   add_u,
@@ -45,20 +44,19 @@ enum v_cpu_idt : uint8_t {
 };
 
 static uint8_t code_8b;
-vm_t *c_vm;
+extern vm_t *c_vm;
 void load_reg_for_err(enum v_cpu_idt x) {
   c_vm->v_cpu.f_regu[0] = 1;
   c_vm->v_cpu.f_regu[1] = x;
 }
 void increment_ipr() {
   uint32_t temp_ipr = ++c_vm->v_cpu.ipr;
-  if (verify_memory_address(temp_ipr, text)) {
+  if (!verify_memory_address(temp_ipr, text)) {
     load_reg_for_err(ipr_corruption);
     return;
   }
   c_vm->v_cpu.ipr = temp_ipr;
 }
-void decrement_ipr() { uint32_t temp_ipr = --c_vm->v_cpu.ipr; }
 uint8_t get_8b_uint() {
   uint8_t data = c_vm->v_ram.container[c_vm->v_cpu.ipr];
   increment_ipr();
@@ -225,7 +223,8 @@ int_data_pair get_args_for_v_alu() {
   // arg code 0 means address
   // arg code 1 means registers
   // arg code 2 means constant
-  uint8_t code_8b = get_8b_uint(), ram_operation = 0;
+  uint8_t ram_operation = 0;
+  code_8b = get_8b_uint();
   int_data_pair rtr_val;
   switch (code_8b) {
   case 0: {
@@ -300,7 +299,6 @@ int_data_pair get_args_for_v_alu() {
     load_reg_for_err(invalid_operator_argument);
     break;
   }
-  decrement_ipr();
   return rtr_val;
 }
 
@@ -356,7 +354,8 @@ void not_inst() {
   // arg code 0 means address
   // arg code 1 means registers
   // arg code 2 means constant
-  uint8_t code_8b = get_8b_uint(), ram_operation = 0;
+  uint8_t ram_operation = 0;
+  code_8b = get_8b_uint();
   uint32_t arg;
   switch (code_8b) {
   case 0: {
@@ -472,7 +471,7 @@ void cipr_inst() {
   // currently pointing at <pointer code>
   // pointer_code 0 means registers
   // pointer_code 1 means constant value
-  uint8_t code_8b = get_8b_uint();
+  code_8b = get_8b_uint();
   switch (code_8b) {
   case 0: {
     uint8_t reg_index = get_8b_uint();
@@ -485,18 +484,15 @@ void cipr_inst() {
       return;
     }
     c_vm->v_cpu.ipr = new_cipr;
-    decrement_ipr();
     break;
   }
   case 1: {
     uint32_t new_cipr = get_32b_uint();
-    if (verify_memory_address(new_cipr, text)) {
-      c_vm->v_cpu.f_regu[0] = 1;
-      c_vm->v_cpu.f_regu[1] = invalid_memory_address;
+    if (!verify_memory_address(new_cipr, text)) {
+      load_reg_for_err(invalid_memory_address);
       return;
     }
     c_vm->v_cpu.ipr = new_cipr;
-    decrement_ipr();
     break;
   }
   default:
@@ -510,7 +506,7 @@ void relative_cipr_inst() {
   // currently pointing at <pointer code>
   // pointer_code 0 means registers
   // pointer_code 1 means constant value
-  uint8_t code_8b = get_8b_uint();
+  code_8b = get_8b_uint();
   switch (code_8b) {
   case 0: {
     uint8_t reg_index = get_8b_uint();
@@ -518,30 +514,26 @@ void relative_cipr_inst() {
     uint32_t new_cipr = c_vm->v_cpu.ipr + change_in_cipr;
     if (c_vm->v_cpu.f_regu[0])
       return;
-    if (verify_memory_address(new_cipr, text)) {
-      c_vm->v_cpu.f_regu[0] = 1;
-      c_vm->v_cpu.f_regu[1] = invalid_memory_address;
+    if (!verify_memory_address(new_cipr, text)) {
+      load_reg_for_err(invalid_memory_address);
       return;
     }
     c_vm->v_cpu.ipr = new_cipr;
-    decrement_ipr();
     break;
   }
   case 1: {
     int32_t change_in_cipr = get_32b_uint();
     uint32_t new_cipr = c_vm->v_cpu.ipr + change_in_cipr;
-    if (verify_memory_address(new_cipr, text)) {
-      c_vm->v_cpu.f_regu[0] = 1;
-      c_vm->v_cpu.f_regu[1] = invalid_memory_address;
+    if (!verify_memory_address(new_cipr, text)) {
+      load_reg_for_err(invalid_memory_address);
       return;
     }
     c_vm->v_cpu.ipr = new_cipr;
-    decrement_ipr();
     break;
   }
   default:
-    c_vm->v_cpu.f_regu[0] = 1;
-    c_vm->v_cpu.f_regu[1] = invalid_cipr_code;
+    load_reg_for_err(invalid_cipr_code);
+    return;
   }
 }
 
@@ -622,31 +614,26 @@ void set_32b_inst() {
     break;
   }
   }
-  decrement_ipr();
 }
 void sys_loop() {
-  void (*isa_methods[16])(void) = {};
+  void (*isa_methods[14])(void) = {
+      set_32b_inst, cipr_inst,  add_s_inst, add_u_inst, min_s_inst,
+      min_u_inst,   mlt_s_inst, mlt_u_inst, div_s_inst, div_u_inst,
+      and_inst,     or_inst,    xor_inst,   not_inst};
+  uint8_t isa_size = sizeof(isa_methods) / sizeof(isa_methods[0]);
   while (1) {
-    uint8_t current_inst = get_8b_uint();
-    uint8_t isa_size = sizeof(isa_methods) / sizeof(isa_methods[0]);
-    if ((uint32_t)current_inst <= isa_size - 1 && !c_vm->v_cpu.f_regu[2] &&
-        !c_vm->v_cpu.f_regu[0]) {
-      increment_ipr();
-      if (!c_vm->v_cpu.f_regu[0])
+    if (!c_vm->v_cpu.f_regu[2] && !c_vm->v_cpu.f_regu[0]) {
+      uint8_t current_inst = get_8b_uint();
+      if (current_inst <= isa_size - 1)
         isa_methods[current_inst]();
-    }
-    if (c_vm->v_cpu.f_regu[0])
-      c_vm->v_cpu.f_regu[2] = 1;
-    else if (current_inst > isa_size) {
-      c_vm->v_cpu.f_regu[0] = 1;
-      c_vm->v_cpu.f_regu[1] = (uint8_t)invalid_instruction;
-      c_vm->v_cpu.f_regu[2] = 1;
-    } else {
-      if (current_inst == end) {
+      else if (current_inst > isa_size) {
+        c_vm->v_cpu.f_regu[0] = 1;
+        c_vm->v_cpu.f_regu[1] = (uint8_t)invalid_instruction;
+        c_vm->v_cpu.f_regu[2] = 1;
+      } else if ((enum isa)current_inst == end)
         change_current_process();
-      } else {
-        increment_ipr();
-      }
     }
+    if (c_vm->v_cpu.f_regu[0] && !c_vm->v_cpu.f_regu[2])
+      c_vm->v_cpu.f_regu[2] = 1;
   }
 }

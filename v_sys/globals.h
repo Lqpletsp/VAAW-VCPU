@@ -79,9 +79,10 @@ typedef struct {
   mmu v_mmu;
   disk v_disk;
 } vm_t;
+
 extern vm_t *c_vm;
 
-inline uint8_t create_virtual_disk(char *filename) {
+static inline uint8_t create_virtual_disk(char *filename) {
   if (c_vm == NULL)
     return 0;
   c_vm->v_disk.container = fopen(filename, "wb");
