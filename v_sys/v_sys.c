@@ -4,6 +4,7 @@
 vm_t *c_vm;
 vm_t *get_v_sys_ptr() { return (vm_t *)malloc(sizeof(vm_t)); }
 static uint8_t boot_sys(vm_t *vm_ptr) {
+  printf("booting_sys\n");
   if (vm_ptr == NULL)
     return 0;
   c_vm = vm_ptr;
@@ -24,20 +25,28 @@ static uint8_t boot_sys(vm_t *vm_ptr) {
   c_vm->v_mmu.pid_stack.size = 0;
   c_vm->v_disk.container = NULL;
   // intialize v_disk
-  char *v_disk_name = "VAAW_v_disk";
-  c_vm->v_disk.container = fopen(v_disk_name, "rb");
+  printf("initializing virtual disk\n");
+  printf("virtual disk capacity: %d\n", V_DISK_CAPACITY);
+  char *v_disk_name = "test_virtual_disk";
+  c_vm->v_disk.container = fopen(v_disk_name, "rb+");
   if (c_vm->v_disk.container == NULL) {
+    printf("creating virtual disk: no appropriate disk exists\n");
     uint8_t x = create_virtual_disk(v_disk_name);
     if (!x)
       return x;
-  }
+  } else
+    printf("skipping virtual disk creation: already present\n");
   c_vm->v_disk.disk_capacity = V_DISK_CAPACITY;
   return 1;
 }
 
 uint8_t run_vm(vm_t *vm_ptr) {
-  if (!boot_sys(vm_ptr))
+  if (!boot_sys(vm_ptr)) {
+    printf("boot failed\n");
     return 0;
+  }
+  printf("boot passed\n");
+  printf("waking v_cpu\n");
   sys_loop();
   return 1;
 }

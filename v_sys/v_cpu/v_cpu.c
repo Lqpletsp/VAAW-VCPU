@@ -1,3 +1,4 @@
+#include "v_cpu.h"
 #include "../globals.h"
 #include "../v_mmu/v_mmu.h"
 #include <stdatomic.h>
@@ -19,33 +20,9 @@ enum isa : uint8_t {
   not,
   end
 };
-enum v_cpu_idt : uint8_t {
-  no_error,
-  divide_by_zero,
-  invalid_ipr,
-  ipr_corruption,
-  invalid_memory_address,
-  invalid_arithmetic_dest_code,
-  invalid_dest_code,
-  invalid_register,
-  unsigned_addition_overflow,
-  signed_addition_overflow,
-  unsigned_subtraction_overflow,
-  signed_subtraction_overflow,
-  unsigned_multiplication_overflow,
-  signed_multiplication_overflow,
-  signed_division_overflow,
-  invalid_set_arguments,
-  invalid_cipr_code,
-  invalid_instruction,
-  segmentation_violation,
-  invalid_operator_argument,
-  illegal_argument_combination
-};
-
 static uint8_t code_8b;
 extern vm_t *c_vm;
-void load_reg_for_err(enum v_cpu_idt x) {
+void load_reg_for_err(enum shared_idt x) {
   c_vm->v_cpu.f_regu[0] = 1;
   c_vm->v_cpu.f_regu[1] = x;
 }

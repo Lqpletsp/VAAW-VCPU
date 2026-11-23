@@ -48,7 +48,8 @@ typedef struct {
 typedef struct {
   process_queue process_map;
   pid_stack pid_stack;
-  process *current_process;
+  process *current_process, latest_process;
+  uint32_t available_RAM_slot;
 } mmu;
 typedef struct {
   uint32_t ipr, g_regu[5];
