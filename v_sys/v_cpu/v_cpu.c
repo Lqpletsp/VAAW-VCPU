@@ -3,23 +3,6 @@
 #include "../v_mmu/v_mmu.h"
 #include <stdatomic.h>
 #include <stdint.h>
-enum isa : uint8_t {
-  set_32b,
-  cipr,
-  add_s,
-  add_u,
-  min_s,
-  min_u,
-  mlt_s,
-  mlt_u,
-  division_s,
-  division_u,
-  and,
-  or,
-  xor,
-  not,
-  end
-};
 static uint8_t code_8b;
 extern vm_t *c_vm;
 void load_reg_for_err(enum shared_idt x) {
@@ -598,6 +581,8 @@ void sys_loop() {
       min_u_inst,   mlt_s_inst, mlt_u_inst, div_s_inst, div_u_inst,
       and_inst,     or_inst,    xor_inst,   not_inst};
   uint8_t isa_size = sizeof(isa_methods) / sizeof(isa_methods[0]);
+  // load the first 16 bytes from v_disk
+  // <1 byte> <1 byte> <4 bytes> <1 byte> <4 bytes>
   while (1) {
     if (!c_vm->v_cpu.f_regu[2] && !c_vm->v_cpu.f_regu[0]) {
       uint8_t current_inst = get_8b_uint();
@@ -607,8 +592,10 @@ void sys_loop() {
         c_vm->v_cpu.f_regu[0] = 1;
         c_vm->v_cpu.f_regu[1] = (uint8_t)invalid_instruction;
         c_vm->v_cpu.f_regu[2] = 1;
-      } else if ((enum isa)current_inst == end)
+      } else if ((enum isa)current_inst == end) {
+        terminate_current_process();
         change_current_process();
+      }
     }
     if (c_vm->v_cpu.f_regu[0] && !c_vm->v_cpu.f_regu[2])
       c_vm->v_cpu.f_regu[2] = 1;

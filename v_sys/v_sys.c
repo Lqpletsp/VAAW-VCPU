@@ -5,6 +5,10 @@ vm_t *c_vm;
 vm_t *get_v_sys_ptr() { return (vm_t *)malloc(sizeof(vm_t)); }
 static uint8_t boot_sys(vm_t *vm_ptr) {
   printf("booting_sys\n");
+  if (V_DISK_CAPACITY < 1024 * 1024) {
+    printf("vritual disk size less than 1 mb cannot be used appropriately");
+    return 0;
+  }
   if (vm_ptr == NULL)
     return 0;
   c_vm = vm_ptr;

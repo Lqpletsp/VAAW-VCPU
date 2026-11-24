@@ -24,7 +24,25 @@ enum shared_idt : uint8_t {
   attempted_access_to_uninit_disk,
   file_access_failed,
   pid_queue_full,
-  ran_out_of_memory
+  ran_out_of_memory,
+  process_corruption
+};
+enum isa : uint8_t {
+  set_32b,
+  cipr,
+  add_s,
+  add_u,
+  min_s,
+  min_u,
+  mlt_s,
+  mlt_u,
+  division_s,
+  division_u,
+  logic_and,
+  logic_or,
+  logic_xor,
+  logic_not,
+  end
 };
 
 void load_reg_for_err(enum shared_idt x);
