@@ -111,41 +111,36 @@ void cprc_inst(uint32_t init_pos, uint32_t file_length) {
   add_new_process_in_queue(&new_process);
 }
 
-void load_first_128b_from_disk() {
+uint8_t load_first_128b_from_disk() {
   // create process instruction
-  if (c_vm->v_mmu.pid_stack.size == 0) {
-    load_reg_for_err(pid_queue_full);
-    return;
+  // special instruction for when a system begins
+  if (c_vm->v_mmu.pid_stack.size != 0) {
+    return 0;
   }
   FILE *c_vm_disk = c_vm->v_disk.container;
   if (c_vm_disk == NULL) {
     load_reg_for_err(attempted_access_to_uninit_disk);
-    return;
+    return 0;
   }
   // after validation, need to create an empty process of 4kb
   uint32_t current_vacant_address = c_vm->v_mmu.available_RAM_slot;
   // giving each process 4KB of RAM
-  if (current_vacant_address + 4095 > V_RAM_CAPACITY - 1) {
+  if (current_vacant_address + 23 > V_RAM_CAPACITY - 1) {
     load_reg_for_err(ran_out_of_memory);
-    return;
+    return 0;
   }
   int new_pid = get_top_pid_stack_data();
   pop_top_pid_stack_data();
+  // 24 bytes given to the init process
   process new_process;
   new_process.pid = new_pid;
-  int current_code_segment = current_vacant_address;
+  int current_code_segment = 0;
   new_process.code.front = current_vacant_address;
-  current_vacant_address += 1023;
+  current_vacant_address += 15;
   new_process.code.back = current_vacant_address;
   new_process.data.front = ++current_vacant_address;
-  current_vacant_address += 1023;
+  current_vacant_address += 7;
   new_process.data.back = current_vacant_address;
-  new_process.stack.front = ++current_vacant_address;
-  current_vacant_address += 1023;
-  new_process.stack.back = current_vacant_address;
-  new_process.heap.front = ++current_vacant_address;
-  current_vacant_address += 1023;
-  new_process.heap.back = current_vacant_address;
   c_vm->v_mmu.available_RAM_slot = ++current_vacant_address;
   // load the process
   uint8_t init_io_buffer[128];
@@ -155,7 +150,7 @@ void load_first_128b_from_disk() {
   while (byte_i < size_of_io_buffer - 1) {
     if (current_code_segment > new_process.code.back) {
       load_reg_for_err(process_corruption);
-      return;
+      return 0;
     }
     c_vm->v_ram.container[current_code_segment] = init_io_buffer[byte_i];
     if ((enum isa)init_io_buffer[byte_i] == end)
@@ -164,6 +159,8 @@ void load_first_128b_from_disk() {
   }
   // add the process to queue
   add_new_process_in_queue(&new_process);
+  change_current_process();
+  return 1;
 }
 uint8_t verify_memory_address(uint32_t address,
                               enum v_ram_segments segment_type) {

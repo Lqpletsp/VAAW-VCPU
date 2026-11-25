@@ -575,15 +575,17 @@ void set_32b_inst() {
   }
   }
 }
+static void (*isa_methods[14])(void) = {
+    set_32b_inst, cipr_inst,  add_s_inst, add_u_inst, min_s_inst,
+    min_u_inst,   mlt_s_inst, mlt_u_inst, div_s_inst, div_u_inst,
+    and_inst,     or_inst,    xor_inst,   not_inst};
+static uint8_t isa_size = sizeof(isa_methods) / sizeof(isa_methods[0]);
+
 void sys_loop() {
-  void (*isa_methods[14])(void) = {
-      set_32b_inst, cipr_inst,  add_s_inst, add_u_inst, min_s_inst,
-      min_u_inst,   mlt_s_inst, mlt_u_inst, div_s_inst, div_u_inst,
-      and_inst,     or_inst,    xor_inst,   not_inst};
-  uint8_t isa_size = sizeof(isa_methods) / sizeof(isa_methods[0]);
   // load the first 16 bytes from v_disk
   // <1 byte> <1 byte> <4 bytes> <1 byte> <4 bytes>
-  while (1) {
+  load_first_128b_from_disk();
+  for (;;) {
     if (!c_vm->v_cpu.f_regu[2] && !c_vm->v_cpu.f_regu[0]) {
       uint8_t current_inst = get_8b_uint();
       if (current_inst <= isa_size - 1)
