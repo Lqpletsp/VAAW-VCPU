@@ -3,7 +3,7 @@
 #include "../globals.h"
 #include <stdint.h>
 void terminate_current_process();
-void cprc_inst(uint32_t init_pos, uint32_t file_length);
+void cprc_inst(uint64_t init_pos, uint32_t file_length);
 void change_current_process();
 enum v_ram_segments : uint8_t { text, data, heap, stack };
 uint8_t verify_memory_address(uint32_t address,

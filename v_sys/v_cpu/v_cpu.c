@@ -46,7 +46,7 @@ uint16_t get_16b_uint() {
   increment_ipr();
   return temp_16b_uint;
 }
-uint16_t get_16b_uint_at_address(int address) {
+uint16_t get_16b_uint_at_address(uint32_t address) {
   if (address + 1 > c_vm->v_ram.capacity) {
     load_reg_for_err(invalid_memory_address);
     return 0;
@@ -56,14 +56,14 @@ uint16_t get_16b_uint_at_address(int address) {
   const_val |= (uint16_t)c_vm->v_ram.container[address] << 8;
   return const_val;
 }
-uint8_t get_8b_uint_at_address(int address) {
+uint8_t get_8b_uint_at_address(uint32_t address) {
   if (address > c_vm->v_ram.capacity - 1) {
     load_reg_for_err(invalid_memory_address);
     return 0;
   }
   return (uint8_t)(c_vm->v_ram.container[address]);
 }
-uint32_t get_32b_uint_at_address(int address) {
+uint32_t get_32b_uint_at_address(uint32_t address) {
   if (!verify_memory_address(address + 3, data)) {
     load_reg_for_err(invalid_memory_address);
     return 0;
@@ -378,6 +378,10 @@ uint32_t pop_and_get_data_in_stack() {
   c_vm->v_cpu.stack_pointer_register = stack_ptr;
   return data_32b;
 }
+void end_inst() {
+  terminate_current_process();
+  change_current_process();
+}
 void push_data_in_stack(uint32_t data) {
   if (!verify_memory_address(c_vm->v_cpu.stack_pointer_register, stack)) {
     load_reg_for_err(segmentation_violation);
@@ -575,10 +579,10 @@ void set_32b_inst() {
   }
   }
 }
-static void (*isa_methods[14])(void) = {
-    set_32b_inst, cipr_inst,  add_s_inst, add_u_inst, min_s_inst,
-    min_u_inst,   mlt_s_inst, mlt_u_inst, div_s_inst, div_u_inst,
-    and_inst,     or_inst,    xor_inst,   not_inst};
+static void (*isa_methods[15])(void) = {
+    end_inst,   set_32b_inst, cipr_inst,  add_s_inst, add_u_inst,
+    min_s_inst, min_u_inst,   mlt_s_inst, mlt_u_inst, div_s_inst,
+    div_u_inst, and_inst,     or_inst,    xor_inst,   not_inst};
 static uint8_t isa_size = sizeof(isa_methods) / sizeof(isa_methods[0]);
 
 void sys_loop() {
@@ -590,13 +594,10 @@ void sys_loop() {
       uint8_t current_inst = get_8b_uint();
       if (current_inst <= isa_size - 1)
         isa_methods[current_inst]();
-      else if (current_inst > isa_size) {
+      else {
         c_vm->v_cpu.f_regu[0] = 1;
         c_vm->v_cpu.f_regu[1] = (uint8_t)invalid_instruction;
         c_vm->v_cpu.f_regu[2] = 1;
-      } else if ((enum isa)current_inst == end) {
-        terminate_current_process();
-        change_current_process();
       }
     }
     if (c_vm->v_cpu.f_regu[0] && !c_vm->v_cpu.f_regu[2])

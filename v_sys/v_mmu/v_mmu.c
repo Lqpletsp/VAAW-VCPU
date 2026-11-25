@@ -53,7 +53,7 @@ static uint8_t add_new_process_in_queue(process *np) {
   return 1;
 }
 
-void cprc_inst(uint32_t init_pos, uint32_t file_length) {
+void cprc_inst(uint64_t init_pos, uint32_t file_length) {
   // create process instruction
   if (c_vm->v_mmu.pid_stack.size == 0) {
     load_reg_for_err(pid_queue_full);

@@ -1,14 +1,23 @@
 #include "globals.h"
 #include "stdlib.h"
 #include "v_cpu/v_cpu.h"
+#include <stdio.h>
 vm_t *c_vm;
+typedef struct {
+  uint8_t result;
+  uint64_t data;
+} rtr_value;
+rtr_value get_v_disk_size(FILE *fp) {
+  if (fp == NULL)
+    return (rtr_value){.result = 0, .data = 0};
+  rtr_value rv;
+  rv.data = fseek(fp, 0L, SEEK_END);
+  rv.result = 1;
+  return rv;
+}
 vm_t *get_v_sys_ptr() { return (vm_t *)malloc(sizeof(vm_t)); }
-static uint8_t boot_sys(vm_t *vm_ptr) {
+static uint8_t boot_sys(vm_t *vm_ptr, char *v_disk_address) {
   printf("booting_sys\n");
-  if (V_DISK_CAPACITY < 1024 * 1024) {
-    printf("vritual disk size less than 1 mb cannot be used appropriately");
-    return 0;
-  }
   if (vm_ptr == NULL)
     return 0;
   c_vm = vm_ptr;
@@ -30,22 +39,28 @@ static uint8_t boot_sys(vm_t *vm_ptr) {
   c_vm->v_disk.container = NULL;
   // intialize v_disk
   printf("initializing virtual disk\n");
-  printf("virtual disk capacity: %d\n", V_DISK_CAPACITY);
-  char *v_disk_name = "test_virtual_disk";
-  c_vm->v_disk.container = fopen(v_disk_name, "rb+");
+  c_vm->v_disk.container = fopen(v_disk_address, "rb+");
   if (c_vm->v_disk.container == NULL) {
-    printf("creating virtual disk: no appropriate disk exists\n");
-    uint8_t x = create_virtual_disk(v_disk_name);
-    if (!x)
-      return x;
-  } else
-    printf("skipping virtual disk creation: already present\n");
-  c_vm->v_disk.disk_capacity = V_DISK_CAPACITY;
+    printf("no appropriate disk found\n");
+    return 0;
+  }
+  printf("virtual disk found: %s\n", v_disk_address);
+  rtr_value disk_metadata = get_v_disk_size(c_vm->v_disk.container);
+  if (!disk_metadata.result) {
+    printf("failed to retrieve metadata for disk\n");
+    return 0;
+  }
+  printf("virutal disk size: %lu", disk_metadata.data);
+  c_vm->v_disk.disk_capacity = disk_metadata.data;
+  if (disk_metadata.data < 1024 * 1024) {
+    printf("vritual disk size less than 1 mb cannot be used appropriately\n");
+    return 0;
+  }
   return 1;
 }
 
-uint8_t run_vm(vm_t *vm_ptr) {
-  if (!boot_sys(vm_ptr)) {
+uint8_t run_vm(vm_t *vm_ptr, char *disk_address) {
+  if (!boot_sys(vm_ptr, disk_address)) {
     printf("boot failed\n");
     return 0;
   }

@@ -28,6 +28,7 @@ enum shared_idt : uint8_t {
   process_corruption
 };
 enum isa : uint8_t {
+  end,
   set_32b,
   cipr,
   add_s,
@@ -42,7 +43,6 @@ enum isa : uint8_t {
   logic_or,
   logic_xor,
   logic_not,
-  end
 };
 
 void load_reg_for_err(enum shared_idt x);

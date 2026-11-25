@@ -3,7 +3,6 @@
 #define V_RAM_CAPACITY (64 * 1024)
 #define PROCESS_MAP_CAPACITY ((V_RAM_CAPACITY) / (4 * 1024))
 #define P_REGS_QUANTITY (10)
-#define V_DISK_CAPACITY (4 * 1024 * 1024) // 4 MB
 #include <stdint.h>
 #include <stdio.h>
 
@@ -67,14 +66,14 @@ typedef struct {
 } cpu;
 typedef struct {
   uint8_t container[V_RAM_CAPACITY];
-  int capacity;
+  uint32_t capacity;
 } ram;
 typedef struct {
   FILE *container;
-  int disk_capacity;
+  uint64_t disk_capacity;
 } disk;
 typedef struct {
-  // 32 bit system
+  // 32 bit cpu
   cpu v_cpu;
   ram v_ram;
   mmu v_mmu;
@@ -82,22 +81,4 @@ typedef struct {
 } vm_t;
 
 extern vm_t *c_vm;
-
-static inline uint8_t create_virtual_disk(char *filename) {
-  if (c_vm == NULL)
-    return 0;
-  c_vm->v_disk.container = fopen(filename, "wb");
-  if (c_vm->v_disk.container == NULL)
-    return 0;
-  uint8_t zero_buffer[8192] = {0};
-  // 8kb of buffer
-  for (size_t i = 0; i < V_DISK_CAPACITY; i += sizeof(zero_buffer)) {
-    if (fwrite(zero_buffer, 1, sizeof(zero_buffer), c_vm->v_disk.container) !=
-        sizeof(zero_buffer)) {
-      fclose(c_vm->v_disk.container);
-      return 0;
-    }
-  }
-  return 1;
-}
 #endif
