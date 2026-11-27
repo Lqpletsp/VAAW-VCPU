@@ -47,7 +47,7 @@ uint16_t get_16b_uint() {
   return temp_16b_uint;
 }
 uint16_t get_16b_uint_at_address(uint32_t address) {
-  if (address + 1 > c_vm->v_ram.capacity) {
+  if (!verify_memory_address(address + 3, data)) {
     load_reg_for_err(invalid_memory_address);
     return 0;
   }
@@ -57,7 +57,7 @@ uint16_t get_16b_uint_at_address(uint32_t address) {
   return const_val;
 }
 uint8_t get_8b_uint_at_address(uint32_t address) {
-  if (address > c_vm->v_ram.capacity - 1) {
+  if (!verify_memory_address(address + 3, data)) {
     load_reg_for_err(invalid_memory_address);
     return 0;
   }
@@ -508,6 +508,7 @@ void set_32b_inst() {
   // source code 1 is p_regs
   // source code 2 is constant value
   // set32_b <address> <address> is an invalid instruction
+  printf("debug\n");
   code_8b = get_8b_uint();
   uint32_t data;
   uint8_t ram_operation = 0;
@@ -534,14 +535,17 @@ void set_32b_inst() {
     }
   }
   case 2:
+    printf("case 2\n");
     if (c_vm->v_cpu.f_regu[0])
       return;
     data = get_32b_uint();
     if (c_vm->v_cpu.f_regu[0])
       return;
+    break;
   }
   // pointing at <destination code>
   code_8b = get_8b_uint();
+  printf("code: %u\n", code_8b);
   if (c_vm->v_cpu.f_regu[0])
     return;
   switch (code_8b) {
@@ -574,6 +578,10 @@ void set_32b_inst() {
     c_vm->v_cpu.p_regs[register_index] = data;
     break;
   }
+  default: {
+    load_reg_for_err(invalid_dest_code);
+    return;
+  }
   }
 }
 static void (*isa_methods[15])(void) = {
@@ -582,10 +590,6 @@ static void (*isa_methods[15])(void) = {
     div_u_inst, and_inst,     or_inst,    xor_inst,   not_inst};
 static uint8_t isa_size = sizeof(isa_methods) / sizeof(isa_methods[0]);
 
-void static debug_function() {
-  printf("p_regs[0]: %d\n", c_vm->v_cpu.p_regs[0]);
-  printf("p_regs[1]: %d\n", c_vm->v_cpu.p_regs[1]);
-}
 void sys_loop() {
   // load the first 16 bytes from v_disk
   // <1 byte> <1 byte> <4 bytes> <1 byte> <4 bytes>
@@ -596,9 +600,7 @@ void sys_loop() {
       if (current_inst <= isa_size - 1) {
         printf("valid instruction: %d\n", (int)current_inst);
         printf("ipr: %u\n", c_vm->v_cpu.ipr);
-        debug_function();
         isa_methods[current_inst]();
-        debug_function();
       } else {
         printf("invalid instruction\n");
         c_vm->v_cpu.f_regu[0] = 1;
@@ -607,7 +609,8 @@ void sys_loop() {
       }
     }
     if (c_vm->v_cpu.f_regu[0] && !c_vm->v_cpu.f_regu[2]) {
-      printf("error: %d\n", c_vm->v_cpu.f_regu[1]);
+      printf("ipr when error: %u\n", c_vm->v_cpu.ipr);
+      printf("error id: %d\n", c_vm->v_cpu.f_regu[1]);
       c_vm->v_cpu.f_regu[2] = 1;
     }
   }

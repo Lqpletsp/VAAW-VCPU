@@ -20,7 +20,7 @@ enum isa : uint8_t {
 };
 
 int write_to_disk(FILE *fp) {
-  uint8_t data[] = {(uint8_t)set_32b, 2, 10, 1, 0, (uint8_t)end};
+  uint8_t data[] = {(uint8_t)set_32b, 2, 10, 00, 00, 0, 1, 0, (uint8_t)end};
   size_t count = sizeof(data) / sizeof(data[0]);
   size_t written = fwrite(data, sizeof(data[0]), count, fp);
   if (written != count) {
@@ -59,6 +59,7 @@ int main(int argc, char *argv[]) {
     fclose(file);
     return 1;
   }
+  write_to_disk(file);
   read_disk(file);
   fclose(file);
   return 0;
