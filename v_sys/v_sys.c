@@ -11,19 +11,21 @@ rtr_value get_v_disk_size(FILE *fp) {
   if (fp == NULL)
     return (rtr_value){.result = 0, .data = 0};
   rtr_value rv;
-  rv.data = fseek(fp, 0L, SEEK_END);
+  fseek(fp, 0L, SEEK_END);
+  rv.data = ftell(fp);
   rv.result = 1;
   return rv;
 }
 vm_t *get_v_sys_ptr() { return (vm_t *)malloc(sizeof(vm_t)); }
 static uint8_t boot_sys(vm_t *vm_ptr, char *v_disk_address) {
-  printf("booting_sys\n");
+  printf("booting sys\n");
   if (vm_ptr == NULL)
     return 0;
   c_vm = vm_ptr;
   c_vm->v_ram.capacity = V_RAM_CAPACITY;
   c_vm->v_mmu.current_process = NULL;
   c_vm->v_cpu.f_regu[2] = 1;
+  c_vm->v_cpu.f_regu[0] = 0;
   c_vm->v_cpu.p_regs_quantity = P_REGS_QUANTITY;
   c_vm->v_mmu.process_map.capacity = PROCESS_MAP_CAPACITY;
   c_vm->v_mmu.process_map.front = 0;
@@ -50,10 +52,10 @@ static uint8_t boot_sys(vm_t *vm_ptr, char *v_disk_address) {
     printf("failed to retrieve metadata for disk\n");
     return 0;
   }
-  printf("virutal disk size: %lu", disk_metadata.data);
+  printf("virutal disk size: %lu bytes\n", disk_metadata.data);
   c_vm->v_disk.disk_capacity = disk_metadata.data;
   if (disk_metadata.data < 1024 * 1024) {
-    printf("vritual disk size less than 1 mb cannot be used appropriately\n");
+    printf("vritual disk size less than 1 MiB cannot be used appropriately\n");
     return 0;
   }
   return 1;
@@ -65,7 +67,7 @@ uint8_t run_vm(vm_t *vm_ptr, char *disk_address) {
     return 0;
   }
   printf("boot passed\n");
-  printf("waking v_cpu\n");
+  printf("waking virtual cpu\n");
   sys_loop();
   return 1;
 }

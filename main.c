@@ -5,6 +5,7 @@ int main(int argc, char *argv[]) {
   // format: <executable name> <disk address>
   if (argc != 2) {
     printf("invalid argument format\n");
+    printf("expected: <executable name> <virtual disk address>\n");
     return 1;
   }
 

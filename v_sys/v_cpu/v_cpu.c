@@ -514,7 +514,6 @@ void set_32b_inst() {
   switch (code_8b) {
   case 0: {
     ram_operation = 1;
-    increment_ipr();
     if (c_vm->v_cpu.f_regu[0])
       return;
     uint32_t source_address = get_32b_uint();
@@ -524,7 +523,6 @@ void set_32b_inst() {
     break;
   }
   case 1: {
-    increment_ipr();
     if (c_vm->v_cpu.f_regu[0])
       return;
     uint8_t register_index = get_8b_uint();
@@ -536,7 +534,6 @@ void set_32b_inst() {
     }
   }
   case 2:
-    increment_ipr();
     if (c_vm->v_cpu.f_regu[0])
       return;
     data = get_32b_uint();
@@ -585,6 +582,10 @@ static void (*isa_methods[15])(void) = {
     div_u_inst, and_inst,     or_inst,    xor_inst,   not_inst};
 static uint8_t isa_size = sizeof(isa_methods) / sizeof(isa_methods[0]);
 
+void static debug_function() {
+  printf("p_regs[0]: %d\n", c_vm->v_cpu.p_regs[0]);
+  printf("p_regs[1]: %d\n", c_vm->v_cpu.p_regs[1]);
+}
 void sys_loop() {
   // load the first 16 bytes from v_disk
   // <1 byte> <1 byte> <4 bytes> <1 byte> <4 bytes>
@@ -592,15 +593,22 @@ void sys_loop() {
   for (;;) {
     if (!c_vm->v_cpu.f_regu[2] && !c_vm->v_cpu.f_regu[0]) {
       uint8_t current_inst = get_8b_uint();
-      if (current_inst <= isa_size - 1)
+      if (current_inst <= isa_size - 1) {
+        printf("valid instruction: %d\n", (int)current_inst);
+        printf("ipr: %u\n", c_vm->v_cpu.ipr);
+        debug_function();
         isa_methods[current_inst]();
-      else {
+        debug_function();
+      } else {
+        printf("invalid instruction\n");
         c_vm->v_cpu.f_regu[0] = 1;
         c_vm->v_cpu.f_regu[1] = (uint8_t)invalid_instruction;
         c_vm->v_cpu.f_regu[2] = 1;
       }
     }
-    if (c_vm->v_cpu.f_regu[0] && !c_vm->v_cpu.f_regu[2])
+    if (c_vm->v_cpu.f_regu[0] && !c_vm->v_cpu.f_regu[2]) {
+      printf("error: %d\n", c_vm->v_cpu.f_regu[1]);
       c_vm->v_cpu.f_regu[2] = 1;
+    }
   }
 }
