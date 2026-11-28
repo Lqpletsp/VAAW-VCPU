@@ -406,7 +406,6 @@ void push_data_in_stack(uint32_t data) {
   c_vm->v_cpu.stack_pointer_register = stack_ptr;
 }
 void ret_inst() {
-  // ret
   // ret command pops 32 bits from the stack
   uint32_t new_ipr = pop_and_get_data_in_stack();
   if (c_vm->v_cpu.f_regu[0])
@@ -592,7 +591,6 @@ static uint8_t isa_size = sizeof(isa_methods) / sizeof(isa_methods[0]);
 
 void sys_loop() {
   // load the first 16 bytes from v_disk
-  // <1 byte> <1 byte> <4 bytes> <1 byte> <4 bytes>
   load_first_128b_from_disk();
   for (;;) {
     if (!c_vm->v_cpu.f_regu[2] && !c_vm->v_cpu.f_regu[0]) {
